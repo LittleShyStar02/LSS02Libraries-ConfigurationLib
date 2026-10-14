@@ -136,11 +136,11 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.littleshystar02:config-core:0.1.1")
-    // implementation("io.github.littleshystar02:config-bukkit:0.1.1")
+    implementation("io.github.littleshystar02:config-core:0.1.2")
+    // implementation("io.github.littleshystar02:config-bukkit:0.1.2")
 }
 ```
 
 ## License
 
-LSS02ConfigurationLib is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). The source is public and you're free to use, modify and share it for noncommercial purposes; selling it or a modified version of it is not permitted.
+LSS02ConfigurationLib is licensed under the [GNU General Public License v3.0](LICENSE.md). You're free to use, modify and share it, including commercially, as long as any distributed derivative work is released under the same license with its source code available.
