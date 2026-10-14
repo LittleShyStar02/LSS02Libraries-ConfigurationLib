@@ -100,7 +100,7 @@ new ClassLoaderResourceExtractor(getClass().getClassLoader()).extract("config.ym
 
 ## Bukkit and Paper
 
-The `config-bukkit` module adds `BukkitResourceExtractor`, which prefers `JavaPlugin#saveResource` when the requested target is the plugin's own data folder, since that's the native mechanism Bukkit already provides, and falls back to `ClassLoaderResourceExtractor` for anything else.
+The `config-bukkit` module adds `BukkitResourceExtractor`, which prefers `JavaPlugin#saveResource` when the requested target is the plugin's own data folder, since that's the native mechanism Bukkit already provides, and falls back to `ClassLoaderResourceExtractor` for anything else. Like the fallback, it leaves a target file that already exists untouched, so `saveResource` is never called for it and Paper does not log an "already exists" warning at every startup.
 
 ```java
 File target = new File(plugin.getDataFolder(), "config.yml");

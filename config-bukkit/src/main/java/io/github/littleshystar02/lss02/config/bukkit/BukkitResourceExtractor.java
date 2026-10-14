@@ -16,6 +16,10 @@ public class BukkitResourceExtractor implements ResourceExtractor {
 
     @Override
     public File extract(String resourcePath, File targetFile) {
+        if (targetFile.exists()) {
+            return targetFile;
+        }
+
         File nativeTarget = new File(plugin.getDataFolder(), resourcePath);
 
         if (targetFile.getAbsoluteFile().toPath().normalize().equals(nativeTarget.getAbsoluteFile().toPath().normalize())) {

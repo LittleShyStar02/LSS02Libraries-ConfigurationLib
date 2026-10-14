@@ -30,6 +30,21 @@ class BukkitResourceExtractorTest {
     }
 
     @Test
+    void doesNotCallSaveResourceWhenTheTargetAlreadyExists(@TempDir Path tempDir) throws IOException {
+        JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
+        Mockito.when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+
+        Path existing = tempDir.resolve("config.yml");
+        Files.writeString(existing, "value: 1\n");
+
+        File result = new BukkitResourceExtractor(plugin).extract("config.yml", existing.toFile());
+
+        verify(plugin, never()).saveResource(anyString(), anyBoolean());
+        assertEquals(existing.toFile(), result);
+        assertEquals("value: 1\n", Files.readString(existing));
+    }
+
+    @Test
     void fallsBackToClassLoaderExtractionWhenTargetIsElsewhere(@TempDir Path tempDir) throws IOException {
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
         Mockito.when(plugin.getDataFolder()).thenReturn(tempDir.resolve("data").toFile());
