@@ -136,8 +136,8 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.littleshystar02:config-core:0.1.0-SNAPSHOT")
-    // implementation("io.github.littleshystar02:config-bukkit:0.1.0-SNAPSHOT")
+    implementation("io.github.littleshystar02:config-core:0.1.1")
+    // implementation("io.github.littleshystar02:config-bukkit:0.1.1")
 }
 ```
 
