@@ -122,17 +122,12 @@ new BukkitResourceExtractor(plugin).extract("config.yml", target);
 
 ## Adding it to your build
 
-The library isn't published to Maven Central yet. Until then, build it locally and use `mavenLocal()`.
-
-```bash
-git clone https://github.com/LittleShyStar02/LSS02ConfigurationLib.git
-cd LSS02ConfigurationLib
-./gradlew publishToMavenLocal
-```
+Both modules are published to Maven Central under the group `io.github.littleshystar02`, so no extra repository is needed. `config-core` pulls in SimpleYAML, which is published only on JitPack: add `maven("https://jitpack.io")` to your repositories.
 
 ```kotlin
 repositories {
-    mavenLocal()
+    mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
@@ -140,6 +135,20 @@ dependencies {
     // implementation("io.github.littleshystar02:config-bukkit:0.1.2")
 }
 ```
+
+To build the current source instead of the published jar, clone the repository and publish it to your local Maven repository, then add `mavenLocal()` before `mavenCentral()`:
+
+```bash
+git clone https://github.com/LittleShyStar02/LSS02Libraries-ConfigurationLib.git
+cd LSS02Libraries-ConfigurationLib
+./gradlew publishToMavenLocal
+```
+
+## Building, testing and releasing
+
+- Build and test: `./gradlew build` (Gradle wrapper 9.7.1). The modules use Gradle toolchains, so JDK 17 (`config-core`) and JDK 21 (`config-bukkit`) must be available; the foojay resolver plugin downloads a missing one. The GitHub Action `.github/workflows/build.yml` runs the same command on every push and pull request to `main`.
+- Versions: the library version is the `version` in `gradle.properties` (semantic versioning, currently `0.1.2`); each release is a git tag `v<version>` (`v0.1.1`, `v0.1.2`). Publishing to Maven Central uses the `com.vanniktech.maven.publish` plugin (`publishToMavenCentral`, signed, manual release from the Central Portal) and needs the owner's signing key and Portal credentials, which are never stored in the repository. Commits, pushes and tags are done by the owner.
+- Related repositories: [LSS02Libraries-DatabasesLib](https://github.com/LittleShyStar02/LSS02Libraries-DatabasesLib) (builds on this library), `LSS02PluginLib-MultiLanguageSystem` (plugin that uses both) and `AetheriaMC-WebIntegration` (uses `config-core` and `db-core`).
 
 ## License
 
