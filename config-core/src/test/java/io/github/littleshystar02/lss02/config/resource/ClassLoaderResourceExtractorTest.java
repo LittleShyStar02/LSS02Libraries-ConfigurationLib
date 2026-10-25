@@ -11,10 +11,13 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/** Tests for {@link ClassLoaderResourceExtractor}. */
 class ClassLoaderResourceExtractorTest {
 
+    /** Extractor under test, bound to the test class loader. */
     private final ResourceExtractor extractor = new ClassLoaderResourceExtractor(getClass().getClassLoader());
 
+    /** The resource content is copied to the target file. */
     @Test
     void copiesResourceContentToTargetFile(@TempDir Path tempDir) throws IOException {
         File target = tempDir.resolve("copied.yml").toFile();
@@ -24,6 +27,7 @@ class ClassLoaderResourceExtractorTest {
         assertEquals("value: 42\n", Files.readString(target.toPath()));
     }
 
+    /** An existing target is not overwritten. */
     @Test
     void doesNothingWhenTargetFileAlreadyExists(@TempDir Path tempDir) throws IOException {
         File target = tempDir.resolve("existing.yml").toFile();
@@ -34,6 +38,7 @@ class ClassLoaderResourceExtractorTest {
         assertEquals("value: untouched\n", Files.readString(target.toPath()));
     }
 
+    /** Missing parent directories of the target are created. */
     @Test
     void createsMissingParentDirectories(@TempDir Path tempDir) throws IOException {
         File target = tempDir.resolve("nested/sub/copied.yml").toFile();
@@ -43,6 +48,7 @@ class ClassLoaderResourceExtractorTest {
         assertEquals("value: 42\n", Files.readString(target.toPath()));
     }
 
+    /** A missing resource raises {@link IllegalArgumentException}. */
     @Test
     void throwsWhenResourceDoesNotExist(@TempDir Path tempDir) {
         File target = tempDir.resolve("copied.yml").toFile();

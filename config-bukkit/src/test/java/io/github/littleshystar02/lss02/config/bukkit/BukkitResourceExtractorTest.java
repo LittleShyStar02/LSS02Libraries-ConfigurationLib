@@ -16,8 +16,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+/** Tests for {@link BukkitResourceExtractor} using a mocked {@code JavaPlugin}. */
 class BukkitResourceExtractorTest {
 
+    /** A target inside the plugin data folder is extracted through {@code saveResource}. */
     @Test
     void delegatesToSaveResourceWhenTargetIsUnderDataFolder(@TempDir Path tempDir) {
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
@@ -29,6 +31,7 @@ class BukkitResourceExtractorTest {
         verify(plugin).saveResource("config.yml", false);
     }
 
+    /** An existing target is returned as is, without calling {@code saveResource} or overwriting it. */
     @Test
     void doesNotCallSaveResourceWhenTheTargetAlreadyExists(@TempDir Path tempDir) throws IOException {
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
@@ -44,6 +47,7 @@ class BukkitResourceExtractorTest {
         assertEquals("value: 1\n", Files.readString(existing));
     }
 
+    /** A target outside the data folder is extracted through the class loader fallback. */
     @Test
     void fallsBackToClassLoaderExtractionWhenTargetIsElsewhere(@TempDir Path tempDir) throws IOException {
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
