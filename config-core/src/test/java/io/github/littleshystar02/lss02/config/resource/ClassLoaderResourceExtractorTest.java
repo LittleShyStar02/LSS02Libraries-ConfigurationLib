@@ -5,9 +5,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -17,6 +19,16 @@ class ClassLoaderResourceExtractorTest {
     /** Extractor under test, bound to the test class loader. */
     private final ResourceExtractor extractor = new ClassLoaderResourceExtractor(getClass().getClassLoader());
 
+    /**
+     * Reads the bundled test resource byte for byte, so the assertions do not depend on the line
+     * endings the checkout (for example {@code core.autocrlf} on Windows) gave to the file.
+     */
+    private byte[] bundledResourceBytes() throws IOException {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("test-resource.yml")) {
+            return in.readAllBytes();
+        }
+    }
+
     /** The resource content is copied to the target file. */
     @Test
     void copiesResourceContentToTargetFile(@TempDir Path tempDir) throws IOException {
@@ -24,7 +36,7 @@ class ClassLoaderResourceExtractorTest {
 
         extractor.extract("test-resource.yml", target);
 
-        assertEquals("value: 42\n", Files.readString(target.toPath()));
+        assertArrayEquals(bundledResourceBytes(), Files.readAllBytes(target.toPath()));
     }
 
     /** An existing target is not overwritten. */
@@ -45,7 +57,7 @@ class ClassLoaderResourceExtractorTest {
 
         extractor.extract("test-resource.yml", target);
 
-        assertEquals("value: 42\n", Files.readString(target.toPath()));
+        assertArrayEquals(bundledResourceBytes(), Files.readAllBytes(target.toPath()));
     }
 
     /** A missing resource raises {@link IllegalArgumentException}. */

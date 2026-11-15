@@ -7,9 +7,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -57,7 +59,10 @@ class BukkitResourceExtractorTest {
         new BukkitResourceExtractor(plugin).extract("test-resource.yml", target);
 
         verify(plugin, never()).saveResource(anyString(), anyBoolean());
-        assertEquals("value: 42\n", Files.readString(target.toPath()));
+        try (InputStream bundled = getClass().getClassLoader().getResourceAsStream("test-resource.yml")) {
+            // Byte comparison: the checkout may use CRLF (core.autocrlf on Windows).
+            assertArrayEquals(bundled.readAllBytes(), Files.readAllBytes(target.toPath()));
+        }
     }
 
 }
