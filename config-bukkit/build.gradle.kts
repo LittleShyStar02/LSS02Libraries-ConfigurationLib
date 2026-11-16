@@ -1,5 +1,3 @@
-description = "Bukkit/Paper adapter for LSS02ConfigurationLib: resource extraction backed by JavaPlugin#saveResource with automatic fallback."
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
@@ -8,14 +6,12 @@ java {
 
 apply(plugin = "com.vanniktech.maven.publish")
 
-repositories {
-    maven("https://repo.papermc.io/repository/maven-public/")
-}
+description = "Bukkit/Paper adapter for LSS02ConfigurationLib: resource extraction backed by JavaPlugin#saveResource with automatic fallback."
 
 dependencies {
     api(project(":config-core"))
-    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    compileOnly(libs.paper.api)
 
-    testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
-    testImplementation("org.mockito:mockito-core:5.22.0")
+    testImplementation(libs.paper.api)
+    testImplementation(libs.mockito.core)
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Extraction of bundled default resources (such as a default {@code config.yml}) to disk.
  *

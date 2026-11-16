@@ -16,10 +16,20 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: |
+            17
+            21
 
+      # Safety net: never fail the build if gradlew lacks the executable bit in the git index.
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build and test
-        run: ./gradlew build --no-daemon
+      # Caches Gradle and validates the wrapper checksum.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build, test and verify
+        run: ./gradlew build
+
+      - name: Check that the POMs can be generated
+        run: ./gradlew generatePomFileForMavenPublication

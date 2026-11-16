@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 package io.github.littleshystar02.lss02.config.bukkit;
 
 import org.junit.jupiter.api.Test;
@@ -8,11 +9,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -26,11 +29,34 @@ class BukkitResourceExtractorTest {
     void delegatesToSaveResourceWhenTargetIsUnderDataFolder(@TempDir Path tempDir) {
         JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
         Mockito.when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
-
         File target = new File(tempDir.toFile(), "config.yml");
+        Mockito.doAnswer(call -> Files.writeString(target.toPath(), "a: 1\n")).when(plugin).saveResource("config.yml", false);
+
         new BukkitResourceExtractor(plugin).extract("config.yml", target);
 
         verify(plugin).saveResource("config.yml", false);
+    }
+
+    /** If {@code saveResource} silently fails the contract "the file exists" is not faked. */
+    @Test
+    void failsWhenSaveResourceDoesNotCreateTheFile(@TempDir Path tempDir) {
+        JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
+        Mockito.when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+
+        File target = new File(tempDir.toFile(), "config.yml");
+
+        assertThrows(UncheckedIOException.class, () -> new BukkitResourceExtractor(plugin).extract("config.yml", target));
+    }
+
+    /** A directory in place of the target file is rejected. */
+    @Test
+    void rejectsDirectoryAsTarget(@TempDir Path tempDir) throws IOException {
+        JavaPlugin plugin = Mockito.mock(JavaPlugin.class);
+        Mockito.when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        Path directory = Files.createDirectory(tempDir.resolve("config.yml"));
+
+        assertThrows(IllegalArgumentException.class, () -> new BukkitResourceExtractor(plugin).extract("config.yml", directory.toFile()));
+        assertThrows(NullPointerException.class, () -> new BukkitResourceExtractor(null));
     }
 
     /** An existing target is returned as is, without calling {@code saveResource} or overwriting it. */

@@ -60,11 +60,52 @@ config.set(AppKeys.MAX_PLAYERS, 32);
 config.save();
 ```
 
-If `server.max-players` isn't in the file yet, `getInt(AppKeys.MAX_PLAYERS)` returns `20` without throwing anything. The library never tries to protect you from a `NullPointerException` on a missing key: `YamlFile` already handles that through the default value, and `ConfigKey` just gives that default a name you can reuse everywhere instead of retyping it.
+If `server.max-players` isn't in the file yet, `getInt(AppKeys.MAX_PLAYERS)` returns `20` without throwing anything. A missing key never throws: the default is returned, and `ConfigKey` just gives that default a name you can reuse everywhere instead of retyping it. The only exception is a key whose default is `null` read through a primitive getter, which fails with an `IllegalStateException` that names the path (see "Defaults and their types" below).
 
 Every typed getter you'd expect on `ConfigurationSection` has a `ConfigKey` overload: `getString`, `getInt`, `getBoolean`, `getDouble`, `getLong`, `getFloat`, `getByte`, `getShort`, `getCharacter`, the untyped `get`, and the list variants of each. The string-based methods you already know from `YamlFile` keep working exactly as before, nothing is overridden.
 
 `addDefault(ConfigKey)` registers the key's default in `YamlFile`'s own defaults section, so even a plain `getInt("server.max-players")` call without a second argument benefits from it.
+
+### Defaults and their types
+
+An enum constant cannot carry a type parameter, so the legacy getters rely on the default having the right runtime type. The failures are explicit and name the key path: a default of the wrong type throws a `ClassCastException`, and a `null` default read through a primitive getter (`getInt`, `getBoolean`, ...) throws an `IllegalStateException`. Numeric defaults are converted, so an `Integer` default read with `getLong`, `getDouble`, `getFloat` or `getShort` works.
+
+### Compile-time typed keys
+
+For keys whose type you want checked by the compiler, declare `TypedKey` constants in a holder class and read them with `get(TypedKey)`:
+
+```java
+public final class AppKeys2 {
+    public static final TypedKey<Integer> PORT = TypedKey.of("server.port", Integer.class, 25565)
+            .withValidator(p -> p > 0 && p < 65536);
+    public static final TypedKey<String> NAME = TypedKey.of("server.name", String.class, "My Server");
+}
+
+int port = config.get(AppKeys2.PORT);
+```
+
+`TypedKey` implements `ConfigKey`, so everything above keeps working. Numbers are converted when lossless; a value of the wrong type (or one rejected by the validator) is reported with its path instead of being silently replaced.
+
+### Comments and reload
+
+`YamlFile#load()` does not keep the comments of the file; use `loadWithComments()` before `save()` when users edit a commented template, otherwise the first `save()` drops them. Defaults registered with `addDefault` stay registered across a new `load()`.
+
+`AbstractConfiguration` is mutable and not thread-safe, and reloading it in place can expose half-loaded content to concurrent readers. For plugins that read from async tasks, `ConfigHolder` builds a brand new instance, validates it, and swaps it in with a single volatile write; if loading or validation fails, the previous snapshot stays in place.
+
+```java
+ConfigHolder<AppConfig> holder = new ConfigHolder<>(
+        () -> AppConfig.loadFrom(file), // your factory: new AppConfig(file), c.load(), wrap checked exceptions
+        c -> c.validate(AppKeys.class));
+
+holder.get().getInt(AppKeys.MAX_PLAYERS); // always a complete snapshot
+holder.reload();                          // on /reload
+```
+
+Treat published snapshots as read-only.
+
+### Contract with SimpleYAML
+
+`AbstractConfiguration` intentionally extends `YamlFile`: the whole SimpleYAML API is part of the public surface, and the supported SimpleYAML range is the one this library is built against (currently 1.8.5). Validation is the only part that does not depend on it: `ConfigKeyValidator` works on the small `ConfigView` interface.
 
 ## Catching drift between the enum and the file
 
@@ -83,15 +124,19 @@ That asymmetry leaves one gap open on purpose: a typo inside the enum itself, on
 try (InputStream in = getClass().getClassLoader().getResourceAsStream("config.yml")) {
     YamlFile template = new YamlFile();
     template.load(in);
-    template.validateTemplate(AppKeys.class); // run this in a test, against the packaged default
+    ConfigKeyValidator.validateTemplate(template, AppKeys.class); // run this in a test, against the packaged default
 }
 ```
+
+`validate` and `validateTemplate` only compare paths. To also catch a wrong value type or an out-of-range value in the user's file (for example `server.max-players: "abc"`), call `config.validateValues(AppKeys.class)`: each present key must hold a value that `ConfigKey#accepts(Object)` approves (by default, a value that fits the type of the default).
+
+If a key stands for a whole section with free children (for example `worlds`, keyed by world name), override `isOpenSection()` to return `true` on that constant: every path below it is then treated as known instead of being reported as an orphan.
 
 Run `validate` against the user's live file at startup, and `validateTemplate` against your bundled default file in a unit test, and a path typo in the enum has nowhere left to hide.
 
 ## Extracting the bundled default file
 
-Standalone applications and Minecraft plugins load their jar's classpath resources differently. `ClassLoaderResourceExtractor`, in `config-core`, copies a classpath resource to a target file using plain `ClassLoader#getResourceAsStream`, the same way regardless of platform, and does nothing if the target already exists.
+Standalone applications and Minecraft plugins load their jar's classpath resources differently. `ClassLoaderResourceExtractor`, in `config-core`, copies a classpath resource to a target file using plain `ClassLoader#getResourceAsStream`, the same way regardless of platform, and does nothing if the target already exists. The copy goes through a temporary file in the same directory and is moved into place without replacing, so an interrupted extraction never leaves a truncated file and concurrent extractions are safe.
 
 ```java
 File target = new File(dataFolder, "config.yml");
@@ -111,7 +156,7 @@ new BukkitResourceExtractor(plugin).extract("config.yml", target);
 
 ## Thread-safety
 
-`AbstractConfiguration` adds no synchronization of its own. It extends `YamlFile`, and `YamlFile` isn't thread-safe either, so touching the same configuration instance from more than one thread at a time (a Bukkit async task alongside the main thread, for instance) needs to be synchronized by the code calling into it. The library doesn't guess where your atomic boundaries should be, so it doesn't wrap anything for you.
+`AbstractConfiguration` adds no synchronization of its own. It extends `YamlFile`, and `YamlFile` isn't thread-safe either, so touching the same configuration instance from more than one thread at a time needs to be synchronized by the code calling into it. The supported pattern is the immutable snapshot: use `ConfigHolder` (see above) and never mutate a published instance.
 
 ## Modules and requirements
 
@@ -131,10 +176,12 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.littleshystar02:config-core:0.1.2")
-    // implementation("io.github.littleshystar02:config-bukkit:0.1.2")
+    implementation("io.github.littleshystar02:config-core:0.1.3-beta.3")
+    // implementation("io.github.littleshystar02:config-bukkit:0.1.3-beta.3")
 }
 ```
+
+Restrict JitPack to SimpleYAML's group so no other dependency can be resolved from it: in Gradle use `exclusiveContent { forRepository { maven("https://jitpack.io") }; filter { includeGroupAndSubgroups("com.github.Carleslc") } }` instead of a bare `maven("https://jitpack.io")`.
 
 To build the current source instead of the published jar, clone the repository and publish it to your local Maven repository, then add `mavenLocal()` before `mavenCentral()`:
 
@@ -146,10 +193,10 @@ cd LSS02Libraries-ConfigurationLib
 
 ## Building, testing and releasing
 
-- Build and test: `./gradlew build` (Gradle wrapper 9.7.1). The modules use Gradle toolchains, so JDK 17 (`config-core`) and JDK 21 (`config-bukkit`) must be available; the foojay resolver plugin downloads a missing one. The GitHub Action `.github/workflows/build.yml` runs the same command on every push and pull request to `main`.
-- Versions: the library version is the `version` in `gradle.properties` (semantic versioning, currently `0.1.2`); each release is a git tag `v<version>` (`v0.1.1`, `v0.1.2`). Publishing to Maven Central uses the `com.vanniktech.maven.publish` plugin (`publishToMavenCentral`, signed, manual release from the Central Portal) and needs the owner's signing key and Portal credentials, which are never stored in the repository. Commits, pushes and tags are done by the owner.
+- Build and test: `./gradlew build` (Gradle wrapper 9.7.1). The modules use Gradle toolchains, so JDK 17 (`config-core`) and JDK 21 (`config-bukkit`) must be available; the foojay resolver plugin downloads a missing one. `build` also runs JaCoCo (minimum 80% line coverage per module), `japicmpCheck` (binary compatibility of `config-core` against the last published release) and compiles with `-Xlint:all -Werror`. Versions live in `gradle/libs.versions.toml`, dependency checksums in `gradle/verification-metadata.xml` (regenerate with `./gradlew --write-verification-metadata sha256 build` after changing a dependency). The GitHub Action `.github/workflows/build.yml` runs the build on every push and pull request to `main`, and Dependabot proposes dependency updates.
+- Versions: the library version is the `version` in `gradle.properties` (semantic versioning, currently `0.1.3-beta.3`); each release is a git tag `v<version>`. Pushing a `v*` tag runs `.github/workflows/release.yml`, which uploads the signed artifacts to the Central Portal using repository secrets; the deployment is then released manually from the Portal. Publishing locally uses the same `com.vanniktech.maven.publish` plugin (`publishToMavenCentral`) and needs the owner's signing key and Portal credentials, which are never stored in the repository. Commits, pushes and tags are done by the owner.
 - Related repositories: [LSS02Libraries-DatabasesLib](https://github.com/LittleShyStar02/LSS02Libraries-DatabasesLib) (builds on this library), `LSS02PluginLib-MultiLanguageSystem` (plugin that uses both) and `AetheriaMC-WebIntegration` (uses `config-core` and `db-core`).
 
 ## License
 
-LSS02ConfigurationLib is licensed under the [GNU General Public License v3.0](LICENSE.md). You're free to use, modify and share it, including commercially, as long as any distributed derivative work is released under the same license with its source code available.
+LSS02ConfigurationLib is licensed under the [GNU General Public License v3.0](LICENSE.md) (`GPL-3.0-only`, declared in every source file with an SPDX header). You're free to use, modify and share it, including commercially, as long as any distributed derivative work is released under the same license with its source code available. The choice of a copyleft license for a library is deliberate and was reconfirmed in the 0.1.3 line; consumers inside the NeoGalaxy ecosystem are GPL-compatible.

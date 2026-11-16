@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Core API of the LSS02 configuration library: an enum-driven layer on top of simpleyaml.
  *

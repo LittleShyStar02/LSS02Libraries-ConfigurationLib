@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Bukkit/Paper adapter for the LSS02 configuration library.
  *

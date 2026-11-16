@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-only
 /**
  * Fail-fast consistency checks between a {@link io.github.littleshystar02.lss02.config.ConfigKey}
  * enum and a YAML file.
