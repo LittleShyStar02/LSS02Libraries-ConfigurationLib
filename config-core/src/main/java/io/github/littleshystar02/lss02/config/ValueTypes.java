@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package io.github.littleshystar02.lss02.config;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +54,7 @@ final class ValueTypes {
             return isIntegral(value.getClass()) && fits(type, ((Number) value).longValue());
         }
         if (type == Float.class || type == Double.class) {
-            return value instanceof Number;
+            return value instanceof Number n && fitsFloating(type, n);
         }
         if (type == Character.class) {
             return value instanceof String s && s.length() == 1;
@@ -131,6 +133,72 @@ final class ValueTypes {
             return value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE;
         }
         return true;
+    }
+
+    /**
+     * Tells whether a number can be stored in a {@code Float} or {@code Double} without overflow or
+     * rounding. Whole numbers must be represented exactly (so a {@code long} above 2^53 is rejected
+     * for a {@code Double}). Decimal numbers must survive the round trip through the target type:
+     * the shortest decimal text of the converted value must equal the original one, so {@code 0.1}
+     * is accepted for a {@code Float} while {@code 0.123456789} and {@code 1e300} are not. A
+     * {@code Float} always widens to a {@code Double}. NaN and the infinities are kept as they are.
+     *
+     * @param type   {@code Float.class} or {@code Double.class}
+     * @param number the number to test
+     * @return {@code true} if the conversion is lossless
+     */
+    private static boolean fitsFloating(Class<?> type, Number number) {
+        boolean toFloat = type == Float.class;
+        if (number instanceof Float) {
+            return true;
+        }
+        if (number instanceof Double d) {
+            if (d.isNaN() || d.isInfinite() || !toFloat) {
+                return true;
+            }
+            float converted = d.floatValue();
+            return !Float.isInfinite(converted) && sameDecimal(Double.toString(d), Float.toString(converted));
+        }
+        BigDecimal exact;
+        boolean decimal = false;
+        if (number instanceof BigDecimal bd) {
+            exact = bd;
+            decimal = true;
+        } else if (number instanceof BigInteger bi) {
+            exact = new BigDecimal(bi);
+        } else if (number instanceof Byte || number instanceof Short
+                || number instanceof Integer || number instanceof Long) {
+            exact = BigDecimal.valueOf(number.longValue());
+        } else {
+            return false;
+        }
+        double asDouble = number.doubleValue();
+        if (toFloat) {
+            float converted = (float) asDouble;
+            if (Float.isInfinite(converted)) {
+                return false;
+            }
+            return decimal
+                    ? sameDecimal(exact.toString(), Float.toString(converted))
+                    : new BigDecimal(converted).compareTo(exact) == 0;
+        }
+        if (Double.isInfinite(asDouble)) {
+            return false;
+        }
+        return decimal
+                ? sameDecimal(exact.toString(), Double.toString(asDouble))
+                : new BigDecimal(asDouble).compareTo(exact) == 0;
+    }
+
+    /**
+     * Compares two decimal texts by numeric value.
+     *
+     * @param a the first decimal text
+     * @param b the second decimal text
+     * @return {@code true} if they denote the same number
+     */
+    private static boolean sameDecimal(String a, String b) {
+        return new BigDecimal(a).compareTo(new BigDecimal(b)) == 0;
     }
 
 }

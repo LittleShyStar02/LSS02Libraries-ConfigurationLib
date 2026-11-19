@@ -221,6 +221,8 @@ public final class ConfigKeyValidator {
                     Class<?> expected = key.getType();
                     if (expected != null && !Map.class.isAssignableFrom(expected)) {
                         invalid.add(key.getPath() + ": is a section, expected " + expected.getSimpleName());
+                    } else if (expected != null && !key.accepts(view.getSectionAsMap(key.getPath()))) {
+                        invalid.add(key.getPath() + ": section is not valid for type " + expected.getSimpleName());
                     }
                     continue;
                 }

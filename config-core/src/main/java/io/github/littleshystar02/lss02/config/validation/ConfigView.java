@@ -3,6 +3,8 @@ package io.github.littleshystar02.lss02.config.validation;
 
 import org.simpleyaml.configuration.file.YamlFile;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -43,6 +45,27 @@ public interface ConfigView {
      * @return the value, possibly {@code null}
      */
     Object getValue(String path);
+
+    /**
+     * Returns a section as a nested map, the shape a typed key of type {@link Map} reads and
+     * validates: child sections become nested maps, leaves keep their raw value.
+     *
+     * <p>The default implementation derives the children from {@link #getAllPaths()}.
+     *
+     * @param path the dot-separated path of a section
+     * @return a new ordered map of the direct children
+     */
+    default Map<String, Object> getSectionAsMap(String path) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        String prefix = path + ".";
+        for (String candidate : getAllPaths()) {
+            if (candidate.startsWith(prefix) && candidate.indexOf('.', prefix.length()) < 0) {
+                String name = candidate.substring(prefix.length());
+                result.put(name, isSection(candidate) ? getSectionAsMap(candidate) : getValue(candidate));
+            }
+        }
+        return result;
+    }
 
     /**
      * Adapts a {@link YamlFile} to this interface.

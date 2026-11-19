@@ -200,7 +200,13 @@ public abstract class AbstractConfiguration extends YamlFile {
      * @throws IllegalStateException if the stored value does not fit the type or fails the key's validator
      */
     public <T> T get(TypedKey<T> key) {
-        return contains(key.getPath()) ? key.read(get(key.getPath())) : key.getDefaultValue();
+        if (!contains(key.getPath())) {
+            return key.getDefaultValue();
+        }
+        Object stored = isConfigurationSection(key.getPath())
+                ? ConfigView.of(this).getSectionAsMap(key.getPath())
+                : get(key.getPath());
+        return key.read(stored);
     }
 
     /**

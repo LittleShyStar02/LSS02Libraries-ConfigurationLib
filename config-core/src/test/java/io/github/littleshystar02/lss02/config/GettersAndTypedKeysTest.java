@@ -316,6 +316,70 @@ class GettersAndTypedKeysTest {
                 () -> cfg.validateValues(GettersAndTypedKeysTest.class, List.of(port)));
     }
 
+    /** CFG-001: Float and Double keys reject values that overflow or would be rounded. */
+    @Test
+    void floatingKeysRejectLossyConversions(@TempDir Path dir) throws IOException {
+        TypedKey<Float> f = TypedKey.of("v.f", Float.class, 0f);
+        TypedKey<Double> d = TypedKey.of("v.d", Double.class, 0d);
+
+        assertEquals(0.1f, load(dir, "v:\n  f: 0.1\n").get(f));
+        assertEquals(16777216f, load(dir, "v:\n  f: 16777216\n").get(f));
+        assertEquals(9007199254740992.0, load(dir, "v:\n  d: 9007199254740992\n").get(d));
+        assertEquals(2.5, load(dir, "v:\n  d: 2.5\n").get(d));
+        assertEquals(1e300, load(dir, "v:\n  d: 1e300\n").get(d));
+
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  f: 16777217\n").get(f));
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  f: 1e300\n").get(f));
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  f: 0.123456789\n").get(f));
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  f: 1e-60\n").get(f));
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  d: 9007199254740993\n").get(d));
+        assertThrows(IllegalStateException.class, () -> load(dir, "v:\n  d: 9223372036854775807\n").get(d));
+
+        assertFalse(ValueTypes.compatible(Double.class, new java.math.BigInteger("1" + "0".repeat(400))));
+        assertTrue(ValueTypes.compatible(Double.class, 1.5f));
+        assertTrue(ValueTypes.compatible(Float.class, Double.POSITIVE_INFINITY));
+        assertFalse(ValueTypes.compatible(Float.class, "1"));
+    }
+
+    /** CFG-002: a default that fails the validator is rejected when the key is built. */
+    @Test
+    void withValidatorRejectsInvalidDefault(@TempDir Path dir) throws IOException {
+        TypedKey<Integer> base = TypedKey.of("app.port", Integer.class, -1);
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> base.withValidator(p -> p > 0));
+        assertTrue(failure.getMessage().contains("app.port"));
+
+        TypedKey<Integer> nullDefault = TypedKey.of("app.port", Integer.class, null).withValidator(p -> p > 0);
+        assertNull(load(dir, "").get(nullDefault));
+
+        TypedKey<Integer> valid = TypedKey.of("app.port", Integer.class, 8080).withValidator(p -> p > 0);
+        assertEquals(8080, load(dir, "").get(valid));
+    }
+
+    /** CFG-003: a Map section is read as a nested map, and the predicate runs on validation. */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void mapSectionsShareSemanticsBetweenReadAndValidation(@TempDir Path dir) throws IOException {
+        TypedKey<Map> section = TypedKey.of("sec", Map.class, null)
+                .withValidator(m -> m.containsKey("a") && !m.containsKey("bad"));
+
+        Cfg ok = load(dir, "sec:\n  a: 1\n  inner:\n    x: 2\n");
+        Map<String, Object> read = ok.get(section);
+        assertEquals(1, read.get("a"));
+        assertEquals(Map.of("x", 2), read.get("inner"));
+        ok.validateValues(GettersAndTypedKeysTest.class, List.of(section));
+
+        Cfg rejected = load(dir, "sec:\n  a: 1\n  bad: 2\n");
+        assertThrows(ConfigValidationException.class,
+                () -> rejected.validateValues(GettersAndTypedKeysTest.class, List.of(section)));
+        assertThrows(IllegalStateException.class, () -> rejected.get(section));
+
+        Cfg missing = load(dir, "sec:\n  b: 1\n");
+        assertThrows(ConfigValidationException.class,
+                () -> missing.validateValues(GettersAndTypedKeysTest.class, List.of(section)));
+        assertThrows(IllegalStateException.class, () -> missing.get(section));
+    }
+
     /** A holder publishes a new snapshot atomically and keeps the old one when reload fails. */
     @Test
     void holderKeepsPreviousSnapshotWhenReloadFails(@TempDir Path dir) throws IOException {

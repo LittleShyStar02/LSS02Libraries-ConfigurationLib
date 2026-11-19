@@ -176,8 +176,8 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.littleshystar02:config-core:0.1.3-beta.3")
-    // implementation("io.github.littleshystar02:config-bukkit:0.1.3-beta.3")
+    implementation("io.github.littleshystar02:config-core:0.1.3-beta.4")
+    // implementation("io.github.littleshystar02:config-bukkit:0.1.3-beta.4")
 }
 ```
 
@@ -194,7 +194,7 @@ cd LSS02Libraries-ConfigurationLib
 ## Building, testing and releasing
 
 - Build and test: `./gradlew build` (Gradle wrapper 9.7.1). The modules use Gradle toolchains, so JDK 17 (`config-core`) and JDK 21 (`config-bukkit`) must be available; the foojay resolver plugin downloads a missing one. `build` also runs JaCoCo (minimum 80% line coverage per module), `japicmpCheck` (binary compatibility of `config-core` against the last published release) and compiles with `-Xlint:all -Werror`. Versions live in `gradle/libs.versions.toml`, dependency checksums in `gradle/verification-metadata.xml` (regenerate with `./gradlew --write-verification-metadata sha256 build` after changing a dependency). The GitHub Action `.github/workflows/build.yml` runs the build on every push and pull request to `main`, and Dependabot proposes dependency updates.
-- Versions: the library version is the `version` in `gradle.properties` (semantic versioning, currently `0.1.3-beta.3`); each release is a git tag `v<version>`. Pushing a `v*` tag runs `.github/workflows/release.yml`, which uploads the signed artifacts to the Central Portal using repository secrets; the deployment is then released manually from the Portal. Publishing locally uses the same `com.vanniktech.maven.publish` plugin (`publishToMavenCentral`) and needs the owner's signing key and Portal credentials, which are never stored in the repository. Commits, pushes and tags are done by the owner.
+- Versions: the library version is the `version` in `gradle.properties` (semantic versioning, currently `0.1.3-beta.4`); each release is a git tag `v<version>`. Pushing a `v*` tag runs `.github/workflows/release.yml`, which uploads the signed artifacts to the Central Portal using repository secrets; the deployment is then released manually from the Portal. Publishing locally uses the same `com.vanniktech.maven.publish` plugin (`publishToMavenCentral`) and needs the owner's signing key and Portal credentials, which are never stored in the repository. Commits, pushes and tags are done by the owner.
 - Related repositories: [LSS02Libraries-DatabasesLib](https://github.com/LittleShyStar02/LSS02Libraries-DatabasesLib) (builds on this library), `LSS02PluginLib-MultiLanguageSystem` (plugin that uses both) and `AetheriaMC-WebIntegration` (uses `config-core` and `db-core`).
 
 ## License

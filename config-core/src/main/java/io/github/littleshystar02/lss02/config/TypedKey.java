@@ -74,9 +74,17 @@ public final class TypedKey<T> implements ConfigKey {
      *
      * @param newValidator the check applied to values after type conversion
      * @return the new key
+     * @throws IllegalArgumentException if the default value is not {@code null} and fails the
+     *                                  predicate (the default is still returned as is when the file
+     *                                  has no entry, but it must be valid itself)
      */
     public TypedKey<T> withValidator(Predicate<? super T> newValidator) {
-        return new TypedKey<>(path, type, defaultValue, Objects.requireNonNull(newValidator, "validator"));
+        Objects.requireNonNull(newValidator, "validator");
+        if (defaultValue != null && !newValidator.test(defaultValue)) {
+            throw new IllegalArgumentException("Default of key '" + path + "' ("
+                    + defaultValue + ") does not satisfy the validator");
+        }
+        return new TypedKey<>(path, type, defaultValue, newValidator);
     }
 
     /** {@inheritDoc} */
